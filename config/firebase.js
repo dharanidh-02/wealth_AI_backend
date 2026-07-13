@@ -2,15 +2,35 @@ const { initializeApp, cert, getApps } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const path = require("path");
 
-// Resolve the path to the service account file in your root folder
-const serviceAccountPath = path.join(__dirname, "../firebase-service-account.json");
-const serviceAccount = require(serviceAccountPath);
+let serviceAccount;
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  } catch (err) {
+    console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT env var:", err);
+  }
+}
+
+if (!serviceAccount) {
+  try {
+    const serviceAccountPath = path.join(__dirname, "../firebase-service-account.json");
+    serviceAccount = require(serviceAccountPath);
+  } catch (err) {
+    console.warn("Local firebase-service-account.json not found, falling back to default application credentials.");
+  }
+}
 
 if (getApps().length === 0) {
-  initializeApp({
-    credential: cert(serviceAccount)
-  });
-  console.log("Firebase Connected Cleanly via Config Layer");
+  if (serviceAccount) {
+    initializeApp({
+      credential: cert(serviceAccount)
+    });
+    console.log("Firebase Connected via service account credentials");
+  } else {
+    initializeApp();
+    console.log("Firebase Connected via default application credentials");
+  }
 }
 
 const db = getFirestore();
